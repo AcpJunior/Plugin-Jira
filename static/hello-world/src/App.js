@@ -11,7 +11,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState('light');
   
-  // Estados dos Detalhes
   const [produtos, setProdutos] = useState([]);
   const [diagrama, setDiagrama] = useState({ swimlanes: [], nodes: [], edges: [] });
   const [customizacoes, setCustomizacoes] = useState([]);
@@ -57,21 +56,32 @@ function App() {
     alert('Controle Técnico salvo!');
   };
 
-  // --- Funções de Diagrama Avançado ---
+  // --- Funções de Diagrama ---
   const addSwimlane = () => {
-    const novo = { id: `s-${Date.now()}`, nome: 'Nova Área', cor: '#E6FCFF' };
+    const novo = { id: `s-${Date.now()}`, nome: 'Nova Área', cor: '#E6FCFF', nodes: [] };
     setDiagrama({ ...diagrama, swimlanes: [...(diagrama.swimlanes || []), novo] });
   };
 
-  const addNode = (shape) => {
-    const novo = { id: `n-${Date.now()}`, shape, label: 'Novo Item', x: 0, y: 0, color: '#DEEBFF' };
-    setDiagrama({ ...diagrama, nodes: [...(diagrama.nodes || []), novo] });
+  const addNodeToSwimlane = (swimlaneId, shape) => {
+    const newNode = { id: `n-${Date.now()}`, shape, label: 'Novo Item', color: '#DEEBFF' };
+    setDiagrama({
+      ...diagrama,
+      swimlanes: diagrama.swimlanes.map(sl => 
+        sl.id === swimlaneId ? { ...sl, nodes: [...(sl.nodes || []), newNode] } : sl
+      )
+    });
   };
 
-  const addEdge = (from, to, label) => {
-    if (!from || !to) return;
-    const nova = { id: `e-${Date.now()}`, from, to, label: label || '' };
-    setDiagrama({ ...diagrama, edges: [...(diagrama.edges || []), nova] });
+  const updateNode = (swimlaneId, nodeId, field, value) => {
+    setDiagrama({
+      ...diagrama,
+      swimlanes: diagrama.swimlanes.map(sl => 
+        sl.id === swimlaneId ? { 
+          ...sl, 
+          nodes: sl.nodes.map(n => n.id === nodeId ? { ...n, [field]: value } : n) 
+        } : sl
+      )
+    });
   };
 
   const isDark = theme === 'dark';
@@ -95,13 +105,15 @@ function App() {
       textAlign: 'center',
       minWidth: '80px',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       fontWeight: 'bold',
-      fontSize: '12px',
+      fontSize: '11px',
       borderRadius: shape === 'circle' ? '50%' : shape === 'oval' ? '40px' : '4px',
-      height: shape === 'circle' ? '60px' : 'auto',
-      width: shape === 'circle' ? '60px' : 'auto',
+      height: shape === 'circle' ? '70px' : 'auto',
+      width: shape === 'circle' ? '70px' : 'auto',
+      marginBottom: '10px'
     })
   };
 
@@ -117,71 +129,11 @@ function App() {
         <Tabs>
           <TabList>
             <Tab>📦 Produtos</Tab>
-            <Tab>📐 Arquitetura Avançada</Tab>
+            <Tab>📐 Arquitetura</Tab>
             <Tab>⚙️ Customizações</Tab>
           </TabList>
 
-          {/* ABA ARQUITETURA AVANÇADA */}
-          <TabPanel>
-            <div style={{ marginTop: '20px' }}>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                <button onClick={addSwimlane} style={{ ...s.btn, backgroundColor: '#FFAB00' }}>+ Swimlane (Área)</button>
-                <button onClick={() => addNode('circle')} style={s.btn}>+ Círculo (Início/Fim)</button>
-                <button onClick={() => addNode('rect')} style={s.btn}>+ Retângulo (Processo)</button>
-                <button onClick={() => addNode('oval')} style={s.btn}>+ Oval (DB/App)</button>
-              </div>
-
-              <div style={{ display: 'flex', gap: '20px' }}>
-                {/* Ferramentas de Conexão */}
-                <div style={{ width: '250px', padding: '15px', backgroundColor: colors.card, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
-                  <h4>Criar Conexão</h4>
-                  <select id="fromN" style={{ ...s.input, width: '100%', marginBottom: '10px' }}>
-                    <option value="">De...</option>
-                    {diagrama.nodes.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
-                  </select>
-                  <select id="toN" style={{ ...s.input, width: '100%', marginBottom: '10px' }}>
-                    <option value="">Para...</option>
-                    {diagrama.nodes.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
-                  </select>
-                  <input id="labelE" style={{ ...s.input, width: '100%', marginBottom: '10px' }} placeholder="Texto na seta..." />
-                  <button onClick={() => addEdge(document.getElementById('fromN').value, document.getElementById('toN').value, document.getElementById('labelE').value)} style={{ ...s.btn, width: '100%' }}>Conectar</button>
-                </div>
-
-                {/* Área do Diagrama */}
-                <div style={{ flexGrow: 1, position: 'relative', minHeight: '600px', backgroundColor: isDark ? '#161B22' : '#F9F9F9', border: `1px solid ${colors.border}`, borderRadius: '8px', overflow: 'auto', padding: '20px' }}>
-                  {/* Swimlanes */}
-                  <div style={{ display: 'flex', gap: '5px', height: '100%' }}>
-                    {diagrama.swimlanes.map(sl => (
-                      <div key={sl.id} style={{ border: `2px dashed ${colors.border}`, minWidth: '250px', padding: '10px', backgroundColor: isDark ? '#1D2125' : sl.cor }}>
-                        <input style={{ background: 'none', border: 'none', fontWeight: 'bold', width: '100%' }} value={sl.nome} onChange={e => setDiagrama({...diagrama, swimlanes: diagrama.swimlanes.map(x => x.id === sl.id ? {...x, nome: e.target.value} : x)})} />
-                        
-                        {/* Itens dentro da Swimlane (Simulado por proximidade) */}
-                        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '40px', alignItems: 'center' }}>
-                          {diagrama.nodes.map(n => (
-                            <div key={n.id} style={{ position: 'relative' }}>
-                              <div style={s.shape(n.shape, n.color)}>
-                                <input style={{ background: 'none', border: 'none', textAlign: 'center', width: '100%', fontSize: '11px' }} value={n.label} onChange={e => setDiagrama({...diagrama, nodes: diagrama.nodes.map(x => x.id === n.id ? {...x, label: e.target.value} : x)})} />
-                              </div>
-                              {/* Setas de Saída */}
-                              {diagrama.edges.filter(e => e.from === n.id).map(e => (
-                                <div key={e.id} style={{ position: 'absolute', bottom: '-35px', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', width: '150px' }}>
-                                  <div style={{ fontSize: '10px', color: colors.primary, fontWeight: 'bold' }}>{e.label}</div>
-                                  <div style={{ color: colors.primary, fontSize: '20px' }}>↓</div>
-                                </div>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    {diagrama.swimlanes.length === 0 && <div style={{ padding: '40px', color: colors.secondary }}>Adicione uma Swimlane para começar a organizar sua arquitetura.</div>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabPanel>
-
-          {/* ABA PRODUTOS (Layout Melhorado) */}
+          {/* ABA 1: PRODUTOS */}
           <TabPanel>
             <div style={{ marginTop: '20px' }}>
               <button onClick={() => setProdutos([...produtos, { id: Date.now().toString(), nome: 'Novo Produto', cor: '#0052CC', tipo: 'Cloud', modulos: [] }])} style={s.btn}>+ Novo Produto</button>
@@ -203,7 +155,52 @@ function App() {
             </div>
           </TabPanel>
 
-          {/* ABA CUSTOMIZAÇÕES (Histórico Expansível) */}
+          {/* ABA 2: ARQUITETURA */}
+          <TabPanel>
+            <div style={{ marginTop: '20px' }}>
+              <button onClick={addSwimlane} style={{ ...s.btn, backgroundColor: '#FFAB00', marginBottom: '20px' }}>+ Adicionar Área (Swimlane)</button>
+              
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '20px' }}>
+                {diagrama.swimlanes.map(sl => (
+                  <div key={sl.id} style={{ border: `2px dashed ${colors.border}`, minWidth: '300px', padding: '15px', backgroundColor: isDark ? '#1D2125' : sl.cor, borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', gap: '5px', marginBottom: '15px' }}>
+                      <input style={{ background: 'none', border: 'none', fontWeight: 'bold', flexGrow: 1 }} value={sl.nome} onChange={e => setDiagrama({...diagrama, swimlanes: diagrama.swimlanes.map(x => x.id === sl.id ? {...x, nome: e.target.value} : x)})} />
+                      <input type="color" value={sl.cor} onChange={e => setDiagrama({...diagrama, swimlanes: diagrama.swimlanes.map(x => x.id === sl.id ? {...x, cor: e.target.value} : x)})} style={{ width: '25px', height: '25px' }} />
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '5px', marginBottom: '20px' }}>
+                      <button onClick={() => addNodeToSwimlane(sl.id, 'circle')} style={{ ...s.btn, fontSize: '10px', padding: '4px' }}>+ Cir</button>
+                      <button onClick={() => addNodeToSwimlane(sl.id, 'rect')} style={{ ...s.btn, fontSize: '10px', padding: '4px' }}>+ Ret</button>
+                      <button onClick={() => addNodeToSwimlane(sl.id, 'oval')} style={{ ...s.btn, fontSize: '10px', padding: '4px' }}>+ Ova</button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'center' }}>
+                      {(sl.nodes || []).map(n => (
+                        <div key={n.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                          <div style={s.shape(n.shape, n.color)}>
+                            <input 
+                              style={{ background: 'none', border: 'none', textAlign: 'center', width: '100%', fontSize: '10px', fontWeight: 'bold' }} 
+                              value={n.label} 
+                              onChange={e => updateNode(sl.id, n.id, 'label', e.target.value)} 
+                            />
+                            <input 
+                              type="color" 
+                              value={n.color} 
+                              onChange={e => updateNode(sl.id, n.id, 'color', e.target.value)} 
+                              style={{ width: '15px', height: '15px', border: 'none', marginTop: '5px' }} 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: '11px', color: colors.secondary, marginTop: '10px' }}>* Clique nos textos e cores para personalizar cada item individualmente.</p>
+            </div>
+          </TabPanel>
+
+          {/* ABA 3: CUSTOMIZAÇÕES */}
           <TabPanel>
             <div style={{ marginTop: '20px' }}>
               <button onClick={() => setCustomizacoes([...customizacoes, { id: Date.now().toString(), nome: 'Nova Custom', cor: '#FFAB00', objetivo: '', codigo: '', history: [] }])} style={s.btn}>+ Nova Customização</button>
@@ -215,14 +212,9 @@ function App() {
                   </div>
                   {expandedCustom === c.id && (
                     <div style={{ padding: '0 15px 15px 15px', borderTop: `1px solid ${colors.border}` }}>
-                      <label style={{ fontSize: '11px' }}>Objetivo:</label>
-                      <textarea style={{ ...s.input, width: '100%', height: '50px', marginBottom: '10px' }} value={c.objetivo} onChange={e => setCustomizacoes(customizacoes.map(x => x.id === c.id ? {...x, objetivo: e.target.value} : x))} />
-                      <label style={{ fontSize: '11px' }}>Código da Customização:</label>
-                      <textarea style={{ ...s.input, width: '100%', height: '150px', fontFamily: 'monospace', fontSize: '12px' }} value={c.codigo} onChange={e => setCustomizacoes(customizacoes.map(x => x.id === c.id ? {...x, codigo: e.target.value} : x))} />
-                      <div style={{ marginTop: '10px', fontSize: '10px', color: colors.secondary }}>
-                        <strong>Histórico:</strong>
-                        {c.history.map((h, i) => <div key={i}>{new Date(h.date).toLocaleString()} - {h.user}: {h.details}</div>)}
-                      </div>
+                      <input style={{ ...s.input, width: '100%', marginBottom: '10px', marginTop: '10px' }} value={c.nome} onChange={e => setCustomizacoes(customizacoes.map(x => x.id === c.id ? {...x, nome: e.target.value} : x))} placeholder="Nome" />
+                      <textarea style={{ ...s.input, width: '100%', height: '50px', marginBottom: '10px' }} value={c.objetivo} onChange={e => setCustomizacoes(customizacoes.map(x => x.id === c.id ? {...x, objetivo: e.target.value} : x))} placeholder="Objetivo" />
+                      <textarea style={{ ...s.input, width: '100%', height: '150px', fontFamily: 'monospace', fontSize: '12px' }} value={c.codigo} onChange={e => setCustomizacoes(customizacoes.map(x => x.id === c.id ? {...x, codigo: e.target.value} : x))} placeholder="Código..." />
                     </div>
                   )}
                 </div>
@@ -240,7 +232,7 @@ function App() {
       <div style={{ backgroundColor: colors.card, padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
         <form onSubmit={(e) => { e.preventDefault(); if(nomeCliente) invoke('addCliente', { nome: nomeCliente }).then(loadClientes); setNomeCliente(''); }}>
           <input style={{ ...s.input, width: '300px', marginRight: '10px' }} value={nomeCliente} onChange={e => setNomeCliente(e.target.value)} placeholder="Nome do Cliente..." />
-          <button type="submit" style={s.btn}>Cadastrar</button>
+          <button type="submit" style={s.btn}>Cadastrar Empresa</button>
         </form>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
