@@ -3,12 +3,11 @@ import { storage } from '@forge/api';
 
 const resolver = new Resolver();
 
-// Obter lista de clientes
+// --- CLIENTES ---
 resolver.define('getClientes', async () => {
   return await storage.get('clientes') || [];
 });
 
-// Adicionar cliente
 resolver.define('addCliente', async ({ payload }) => {
   const clientes = await storage.get('clientes') || [];
   const novoCliente = { id: Date.now().toString(), nome: payload.nome };
@@ -17,7 +16,6 @@ resolver.define('addCliente', async ({ payload }) => {
   return novaLista;
 });
 
-// Excluir cliente e seus detalhes
 resolver.define('deleteCliente', async ({ payload }) => {
   const clientes = await storage.get('clientes') || [];
   const novaLista = clientes.filter(c => c.id !== payload.id);
@@ -26,17 +24,38 @@ resolver.define('deleteCliente', async ({ payload }) => {
   return novaLista;
 });
 
-// Obter detalhes específicos de um cliente
+// --- DETALHES GERAIS ---
 resolver.define('getClienteDetails', async ({ payload }) => {
-  return await storage.get(`details-${payload.id}`) || {
-    produtos: '',
-    fluxo: 'graph TD\n  A[Origem] --> B[Base]',
-    customizacoes: ''
+  const details = await storage.get(`details-${payload.id}`) || {
+    produtos: [],
+    fluxo: 'graph LR\n  subgraph Internet\n    User((Usuário))\n  end\n\n  subgraph Cloud\n    LB[Load Balancer] --> App[App Server]\n    App --> DB[(Database)]\n  end\n\n  User --> LB',
+    customizacoes: []
   };
+  return details;
 });
 
-// Salvar detalhes de um cliente
 resolver.define('saveClienteDetails', async ({ payload }) => {
+  const oldData = await storage.get(`details-${payload.id}`) || {};
+  
+  // Lógica de histórico para customizações
+  if (payload.details.customizacoes) {
+    payload.details.customizacoes = payload.details.customizacoes.map(custom => {
+      const oldCustom = (oldData.customizacoes || []).find(oc => oc.id === custom.id);
+      if (oldCustom && JSON.stringify(oldCustom) !== JSON.stringify(custom)) {
+        const history = oldCustom.history || [];
+        const change = {
+          date: new Date().toISOString(),
+          user: payload.userName || 'Sistema',
+          diff: 'Alteração de dados'
+        };
+        custom.history = [change, ...history].slice(0, 10); // Mantém as últimas 10 alterações
+      } else if (!custom.history) {
+        custom.history = [{ date: new Date().toISOString(), user: payload.userName || 'Sistema', diff: 'Criação' }];
+      }
+      return custom;
+    });
+  }
+
   await storage.set(`details-${payload.id}`, payload.details);
   return { success: true };
 });
