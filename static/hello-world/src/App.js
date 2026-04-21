@@ -1,17 +1,52 @@
-import React, { useEffect, useState } from 'react';
-import { invoke } from '@forge/bridge';
+import React, { useEffect, useState, useRef } from 'react';
+import { invoke, view } from '@forge/bridge';
+import { setGlobalTheme } from '@atlaskit/tokens';
+import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
+import 'react-tabs/style/react-tabs.css';
+import mermaid from 'mermaid';
+
+// Configuração do Mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+});
 
 function App() {
   const [registros, setRegistros] = useState([]);
+  const [selectedCliente, setSelectedCliente] = useState(null);
   const [nome, setNome] = useState('');
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState('light');
+  
+  // Estados para as abas
+  const [produtos, setProdutos] = useState('');
+  const [fluxoCode, setFluxoCode] = useState('graph TD\n  A[Origem] --> B[Base]');
+  const [customizacoes, setCustomizacoes] = useState('');
+  
+  const mermaidRef = useRef(null);
 
   useEffect(() => {
+    // Sincronizar tema com o Jira
+    view.getContext().then(context => {
+      const currentTheme = context.theme?.colorMode || 'light';
+      setTheme(currentTheme);
+      setGlobalTheme(currentTheme);
+    });
+
     invoke('getClientes').then((data) => {
       setRegistros(data || []);
       setLoading(false);
     });
   }, []);
+
+  // Renderizar Mermaid quando o código mudar ou a aba mudar
+  useEffect(() => {
+    if (selectedCliente && mermaidRef.current) {
+      mermaidRef.current.removeAttribute('data-processed');
+      mermaid.contentLoaded();
+    }
+  }, [fluxoCode, selectedCliente]);
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -21,168 +56,181 @@ function App() {
     setNome('');
   };
 
+  const handleSelectCliente = async (cliente) => {
+    setLoading(true);
+    setSelectedCliente(cliente);
+    // Buscar dados específicos do cliente
+    const data = await invoke('getClienteDetails', { id: cliente.id });
+    setProdutos(data.produtos || '');
+    setFluxoCode(data.fluxo || 'graph TD\n  A[Origem] --> B[Base]');
+    setCustomizacoes(data.customizacoes || '');
+    setLoading(false);
+  };
+
+  const handleSaveDetails = async () => {
+    await invoke('saveClienteDetails', { 
+      id: selectedCliente.id, 
+      details: { produtos, fluxo: fluxoCode, customizacoes } 
+    });
+    alert('Dados salvos com sucesso!');
+  };
+
   const handleDelete = async (id) => {
     const novaLista = await invoke('deleteCliente', { id });
     setRegistros(novaLista);
+    if (selectedCliente?.id === id) setSelectedCliente(null);
   };
 
-  if (loading) return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      height: '100vh', 
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' 
-    }}>
-      <div style={{ color: '#6B778C' }}>Carregando Controle Técnico...</div>
-    </div>
-  );
+  if (loading && !selectedCliente) return <div style={{ padding: '20px' }}>Carregando...</div>;
+
+  // Estilos baseados no tema
+  const isDark = theme === 'dark';
+  const styles = {
+    container: {
+      padding: '30px',
+      backgroundColor: isDark ? '#1D2125' : '#FFFFFF',
+      color: isDark ? '#B3B9C4' : '#172B4D',
+      minHeight: '100vh',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+    },
+    card: {
+      backgroundColor: isDark ? '#22272B' : '#F4F5F7',
+      border: `1px solid ${isDark ? '#353A44' : '#DFE1E6'}`,
+      padding: '20px',
+      borderRadius: '8px',
+      marginBottom: '20px'
+    },
+    input: {
+      padding: '10px',
+      backgroundColor: isDark ? '#22272B' : '#FFFFFF',
+      color: isDark ? '#B3B9C4' : '#172B4D',
+      border: `2px solid ${isDark ? '#353A44' : '#DFE1E6'}`,
+      borderRadius: '4px',
+      width: '100%'
+    },
+    button: {
+      padding: '10px 20px',
+      backgroundColor: '#0052CC',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontWeight: 'bold'
+    },
+    secondaryButton: {
+      padding: '6px 12px',
+      backgroundColor: 'transparent',
+      color: '#DE350B',
+      border: '1px solid #DE350B',
+      borderRadius: '3px',
+      cursor: 'pointer'
+    }
+  };
+
+  if (selectedCliente) {
+    return (
+      <div style={styles.container}>
+        <button onClick={() => setSelectedCliente(null)} style={{ ...styles.button, marginBottom: '20px', backgroundColor: '#6B778C' }}>
+          ← Voltar ao Diretório
+        </button>
+        <h2>{selectedCliente.nome} - Controle Detalhado</h2>
+        
+        <Tabs>
+          <TabList>
+            <Tab>Produtos</Tab>
+            <Tab>Fluxograma</Tab>
+            <Tab>Customizações</Tab>
+          </TabList>
+
+          <TabPanel>
+            <div style={{ marginTop: '20px' }}>
+              <h3>Descrição dos Produtos</h3>
+              <textarea 
+                style={{ ...styles.input, height: '200px', marginBottom: '10px' }}
+                value={produtos}
+                onChange={(e) => setProdutos(e.target.value)}
+                placeholder="Descreva os produtos que o cliente possui..."
+              />
+            </div>
+          </TabPanel>
+          
+          <TabPanel>
+            <div style={{ marginTop: '20px' }}>
+              <h3>Fluxo do Ambiente</h3>
+              <p style={{ fontSize: '12px', color: '#6B778C' }}>Use a sintaxe Mermaid (ex: A --> B)</p>
+              <div style={{ display: 'flex', gap: '20px' }}>
+                <textarea 
+                  style={{ ...styles.input, height: '300px', width: '40%' }}
+                  value={fluxoCode}
+                  onChange={(e) => setFluxoCode(e.target.value)}
+                />
+                <div style={{ flexGrow: 1, backgroundColor: 'white', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                  <div className="mermaid" ref={mermaidRef}>
+                    {fluxoCode}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabPanel>
+
+          <TabPanel>
+            <div style={{ marginTop: '20px' }}>
+              <h3>Objetos Customizados</h3>
+              <textarea 
+                style={{ ...styles.input, height: '200px', marginBottom: '10px' }}
+                value={customizacoes}
+                onChange={(e) => setCustomizacoes(e.target.value)}
+                placeholder="Documente aqui as customizações realizadas..."
+              />
+            </div>
+          </TabPanel>
+        </Tabs>
+        
+        <button onClick={handleSaveDetails} style={{ ...styles.button, marginTop: '20px' }}>
+          Salvar Todas as Alterações
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ 
-      padding: '40px', 
-      backgroundColor: '#FFFFFF', 
-      minHeight: '100vh',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-      color: '#172B4D'
-    }}>
-      {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '32px',
-        borderBottom: '2px solid #EBECF0',
-        paddingBottom: '16px'
-      }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '600', color: '#0747A6' }}>
-            🛠️ Controle Técnico
-          </h1>
-          <p style={{ margin: '4px 0 0 0', color: '#6B778C', fontSize: '14px' }}>
-            Gerencie o diretório de registros técnicos e clientes
-          </p>
-        </div>
-        <div style={{ fontSize: '12px', backgroundColor: '#E3F2FD', color: '#0D47A1', padding: '4px 12px', borderRadius: '20px', fontWeight: 'bold' }}>
-          {registros.length} Registro(s)
-        </div>
-      </div>
-
-      {/* Form Card */}
-      <div style={{ 
-        backgroundColor: '#F4F5F7', 
-        padding: '24px', 
-        borderRadius: '8px',
-        marginBottom: '32px',
-        border: '1px solid #DFE1E6'
-      }}>
-        <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '16px', fontWeight: '600' }}>Adicionar Novo Registro</h3>
-        <form onSubmit={handleAdd} style={{ display: 'flex', gap: '12px' }}>
+    <div style={styles.container}>
+      <h1 style={{ color: '#0052CC' }}>🛠️ Controle Técnico</h1>
+      
+      <div style={styles.card}>
+        <h3>Novo Registro</h3>
+        <form onSubmit={handleAdd} style={{ display: 'flex', gap: '10px' }}>
           <input 
             type="text" 
             value={nome} 
             onChange={(e) => setNome(e.target.value)} 
-            placeholder="Nome do cliente ou identificação técnica"
-            style={{ 
-              padding: '10px 16px', 
-              flexGrow: 1,
-              border: '2px solid #DFE1E6',
-              borderRadius: '4px',
-              fontSize: '14px',
-              outline: 'none',
-              transition: 'border-color 0.2s'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#4C9AFF'}
-            onBlur={(e) => e.target.style.borderColor = '#DFE1E6'}
+            placeholder="Nome do Cliente"
+            style={styles.input}
           />
-          <button 
-            type="submit"
-            style={{ 
-              padding: '10px 24px', 
-              backgroundColor: '#0052CC', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '14px',
-              boxShadow: '0 2px 4px rgba(0,82,204,0.2)',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#0065FF'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#0052CC'}
-          >
-            Cadastrar
-          </button>
+          <button type="submit" style={styles.button}>Cadastrar</button>
         </form>
       </div>
 
-      {/* Table Container */}
-      <div style={{ 
-        backgroundColor: '#FFFFFF', 
-        borderRadius: '8px', 
-        border: '1px solid #DFE1E6',
-        overflow: 'hidden'
-      }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#FAFBFC', borderBottom: '2px solid #EBECF0' }}>
-              <th style={{ padding: '16px', textAlign: 'left', color: '#6B778C', fontWeight: '600', width: '20%' }}>ID</th>
-              <th style={{ padding: '16px', textAlign: 'left', color: '#6B778C', fontWeight: '600' }}>Identificação</th>
-              <th style={{ padding: '16px', textAlign: 'center', color: '#6B778C', fontWeight: '600', width: '15%' }}>Ações</th>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ textAlign: 'left', borderBottom: `2px solid ${isDark ? '#353A44' : '#EBECF0'}` }}>
+            <th style={{ padding: '12px' }}>Cliente</th>
+            <th style={{ padding: '12px' }}>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {registros.map((item) => (
+            <tr key={item.id} style={{ borderBottom: `1px solid ${isDark ? '#353A44' : '#EBECF0'}` }}>
+              <td style={{ padding: '12px', fontWeight: 'bold', cursor: 'pointer', color: '#0052CC' }} onClick={() => handleSelectCliente(item)}>
+                {item.nome}
+              </td>
+              <td style={{ padding: '12px' }}>
+                <button onClick={() => handleDelete(item.id)} style={styles.secondaryButton}>Excluir</button>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {registros.map((item, index) => (
-              <tr key={item.id} style={{ 
-                borderBottom: '1px solid #EBECF0',
-                backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#FAFBFC'
-              }}>
-                <td style={{ padding: '16px', color: '#6B778C', fontFamily: 'monospace' }}>#{item.id.slice(-6)}</td>
-                <td style={{ padding: '16px', fontWeight: '500', color: '#172B4D' }}>{item.nome}</td>
-                <td style={{ padding: '16px', textAlign: 'center' }}>
-                  <button 
-                    onClick={() => handleDelete(item.id)}
-                    style={{ 
-                      padding: '6px 12px', 
-                      backgroundColor: 'transparent', 
-                      color: '#DE350B', 
-                      border: '1px solid #DE350B', 
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => {
-                      e.target.style.backgroundColor = '#DE350B';
-                      e.target.style.color = 'white';
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                      e.target.style.color = '#DE350B';
-                    }}
-                  >
-                    Remover
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {registros.length === 0 && (
-          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📂</div>
-            <div style={{ color: '#6B778C', fontSize: '16px' }}>Nenhum registro técnico encontrado.</div>
-            <div style={{ color: '#A5ADBA', fontSize: '14px', marginTop: '8px' }}>Use o formulário acima para adicionar o primeiro item.</div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer Info */}
-      <div style={{ marginTop: '32px', textAlign: 'center', color: '#A5ADBA', fontSize: '12px' }}>
-        App de Controle Técnico • Desenvolvido via Forge Atlassian
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
