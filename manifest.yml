@@ -1,21 +1,20 @@
 modules:
-  jira:issuePanel:
-    - key: plugin-jira-hello-world-issue-panel
+  jira:globalPage:
+    - key: plugin-clientes-global-page
       resource: main
       resolver:
         function: resolver
-      render: native
-      title: plugin-jira
-      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+      title: Controle Técnico
   function:
     - key: resolver
       handler: index.handler
 resources:
   - key: main
-    path: src/frontend/index.jsx
+    path: static/hello-world/build
 app:
   runtime:
     name: nodejs24.x
-    memoryMB: 256
-    architecture: arm64
-  id: ari:cloud:ecosystem::app/f00b0a46-6cb0-4792-ae89-be354459789e
+  id: ari:cloud:ecosystem::app/c2d2b012-b5bf-4837-9e49-977c13f67e1c
+permissions:
+  scopes:
+    - storage:app

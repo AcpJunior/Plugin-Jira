@@ -1,6 +1,6 @@
 # Forge Hello World
 
-This project contains a Forge app written in Javascript that displays `Hello World!` in a Jira issue panel. 
+This project contains a Forge app written in JavaScript that displays `Hello World!` in a Jira global page.
 
 See [developer.atlassian.com/platform/forge/](https://developer.atlassian.com/platform/forge) for documentation and tutorials explaining Forge.
 
@@ -9,12 +9,24 @@ See [developer.atlassian.com/platform/forge/](https://developer.atlassian.com/pl
 See [Set up Forge](https://developer.atlassian.com/platform/forge/set-up-forge/) for instructions to get set up.
 
 ## Quick start
+- Install top-level dependencies:
+```
+npm install
+```
 
-- Modify your app frontend by editing the `src/frontend/index.jsx` file.
+- Install dependencies (inside of the `static/hello-world` directory):
+```
+npm install
+```
 
-- Modify your app backend by editing the `src/resolvers/index.js` file to define resolver functions. See [Forge resolvers](https://developer.atlassian.com/platform/forge/runtime-reference/custom-ui-resolver/) for documentation on resolver functions.
+- Modify your app by editing the files in `static/hello-world/src/`.
 
-- Build and deploy your app by running:
+- Build your app (inside of the `static/hello-world` directory):
+```
+npm run build
+```
+
+- Deploy your app by running:
 ```
 forge deploy
 ```
@@ -22,11 +34,6 @@ forge deploy
 - Install your app in an Atlassian site by running:
 ```
 forge install
-```
-
-- Develop your app by running `forge tunnel` to proxy invocations locally:
-```
-forge tunnel
 ```
 
 ### Notes
@@ -37,3 +44,4 @@ forge tunnel
 ## Support
 
 See [Get help](https://developer.atlassian.com/platform/forge/get-help/) for how to get help and provide feedback.
+
