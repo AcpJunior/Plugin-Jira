@@ -28,8 +28,12 @@ resolver.define('deleteCliente', async ({ payload }) => {
 resolver.define('getClienteDetails', async ({ payload }) => {
   const details = await storage.get(`details-${payload.id}`) || {
     produtos: [],
-    // Novo formato de fluxo visual (nós e conexões)
-    fluxoVisual: { nodes: [], edges: [] },
+    // Estrutura avançada de diagrama
+    diagrama: { 
+      swimlanes: [], 
+      nodes: [], 
+      edges: [] 
+    },
     customizacoes: []
   };
   return details;
@@ -38,34 +42,18 @@ resolver.define('getClienteDetails', async ({ payload }) => {
 resolver.define('saveClienteDetails', async ({ payload }) => {
   const oldData = await storage.get(`details-${payload.id}`) || {};
   
-  // Lógica de histórico aprimorada para customizações
   if (payload.details.customizacoes) {
     payload.details.customizacoes = payload.details.customizacoes.map(custom => {
       const oldCustom = (oldData.customizacoes || []).find(oc => oc.id === custom.id);
-      
-      // Se houve mudança significativa, registra no histórico
-      if (oldCustom && (
-          oldCustom.codigo !== custom.codigo || 
-          oldCustom.objetivo !== custom.objetivo ||
-          oldCustom.nome !== custom.nome
-      )) {
+      if (oldCustom && (oldCustom.codigo !== custom.codigo || oldCustom.objetivo !== custom.objetivo)) {
         const history = oldCustom.history || [];
-        const change = {
+        custom.history = [{
           date: new Date().toISOString(),
           user: payload.userName || 'Sistema',
-          details: 'Atualização de código/objetivo',
-          oldState: {
-            codigo: oldCustom.codigo,
-            objetivo: oldCustom.objetivo
-          }
-        };
-        custom.history = [change, ...history].slice(0, 20); // Mantém as últimas 20 alterações
+          details: 'Atualização de código/objetivo'
+        }, ...history].slice(0, 20);
       } else if (!custom.history) {
-        custom.history = [{ 
-          date: new Date().toISOString(), 
-          user: payload.userName || 'Sistema', 
-          details: 'Criação inicial' 
-        }];
+        custom.history = [{ date: new Date().toISOString(), user: payload.userName || 'Sistema', details: 'Criação' }];
       }
       return custom;
     });
