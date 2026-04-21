@@ -56,7 +56,7 @@ function App() {
     alert('Controle Técnico salvo!');
   };
 
-  // --- Funções de Diagrama (CORRIGIDAS PARA INDEPENDÊNCIA DE ÁREA) ---
+  // --- Funções de Diagrama (SUPORTE A MÚLTIPLAS CONEXÕES) ---
   const addSwimlane = () => {
     const novo = { id: `s-${Date.now()}`, nome: 'Nova Área', cor: isDark ? '#2C333A' : '#F0F2F5' };
     setDiagrama({ ...diagrama, swimlanes: [...(diagrama.swimlanes || []), novo] });
@@ -87,6 +87,10 @@ function App() {
 
   const addEdge = (from, to, label) => {
     if (!from || !to) return;
+    if (from === to) {
+      alert('Um item não pode conectar a ele mesmo.');
+      return;
+    }
     const nova = { id: `e-${Date.now()}`, from, to, label: label || '' };
     setDiagrama({ ...diagrama, edges: [...(diagrama.edges || []), nova] });
   };
@@ -97,6 +101,10 @@ function App() {
       nodes: diagrama.nodes.filter(n => n.id !== id),
       edges: diagrama.edges.filter(e => e.from !== id && e.to !== id)
     });
+  };
+
+  const removeEdge = (id) => {
+    setDiagrama({ ...diagrama, edges: diagrama.edges.filter(e => e.id !== id) });
   };
 
   const removeSwimlane = (id) => {
@@ -191,28 +199,29 @@ function App() {
 
               <div style={{ display: 'flex', gap: '20px' }}>
                 <div style={{ width: '280px', padding: '15px', backgroundColor: colors.card, borderRadius: '8px', border: `1px solid ${colors.border}`, maxHeight: '600px', overflowY: 'auto' }}>
-                  <h4>Conectar Itens</h4>
+                  <h4>Criar Conexão</h4>
                   <select id="fromN" style={{ ...s.input, width: '100%', marginBottom: '10px' }}>
-                    <option value="">De...</option>
+                    <option value="">De (Origem)...</option>
                     {diagrama.nodes.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
                   </select>
                   <select id="toN" style={{ ...s.input, width: '100%', marginBottom: '10px' }}>
-                    <option value="">Para...</option>
+                    <option value="">Para (Destino)...</option>
                     {diagrama.nodes.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
                   </select>
-                  <input id="labelE" style={{ ...s.input, width: '100%', marginBottom: '10px' }} placeholder="Texto na seta..." />
-                  <button onClick={() => addEdge(document.getElementById('fromN').value, document.getElementById('toN').value, document.getElementById('labelE').value)} style={{ ...s.btn, width: '100%', marginBottom: '20px' }}>Ligar</button>
+                  <input id="labelE" style={{ ...s.input, width: '100%', marginBottom: '10px' }} placeholder="Ex: Solicitar carga" />
+                  <button onClick={() => addEdge(document.getElementById('fromN').value, document.getElementById('toN').value, document.getElementById('labelE').value)} style={{ ...s.btn, width: '100%', marginBottom: '20px' }}>Conectar</button>
 
-                  <h4 style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '15px' }}>Itens Criados</h4>
-                  {diagrama.nodes.map(n => (
-                    <div key={n.id} style={{ marginBottom: '10px', padding: '10px', backgroundColor: colors.bg, borderRadius: '4px', fontSize: '11px' }}>
-                      <input style={{ ...s.input, fontSize: '11px', marginBottom: '5px' }} value={n.label} onChange={e => updateNode(n.id, 'label', e.target.value)} />
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <input type="color" value={n.color} onChange={e => updateNode(n.id, 'color', e.target.value)} />
-                        <button onClick={() => removeNode(n.id)} style={{ background: 'none', border: 'none', color: '#DE350B', cursor: 'pointer' }}>Excluir</button>
+                  <h4 style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '15px' }}>Conexões Ativas</h4>
+                  {diagrama.edges.map(e => {
+                    const fromNode = diagrama.nodes.find(n => n.id === e.from);
+                    const toNode = diagrama.nodes.find(n => n.id === e.to);
+                    return (
+                      <div key={e.id} style={{ marginBottom: '8px', padding: '8px', backgroundColor: colors.bg, borderRadius: '4px', fontSize: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span><strong>{fromNode?.label || '?'}</strong> → <strong>{toNode?.label || '?'}</strong> ({e.label})</span>
+                        <button onClick={() => removeEdge(e.id)} style={{ background: 'none', border: 'none', color: '#DE350B', cursor: 'pointer' }}>×</button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div style={{ flexGrow: 1, position: 'relative', minHeight: '600px', backgroundColor: isDark ? '#161B22' : '#F9F9F9', border: `1px solid ${colors.border}`, borderRadius: '8px', overflowX: 'auto', display: 'flex' }}>
@@ -232,30 +241,37 @@ function App() {
                         <button onClick={() => addNode(sl.id, 'oval')} style={{ ...s.btn, fontSize: '10px', padding: '4px 8px' }}>+ Ova</button>
                       </div>
 
-                      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '60px', alignItems: 'center' }}>
+                      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '80px', alignItems: 'center' }}>
                         {diagrama.nodes.filter(n => n.swimlaneId === sl.id).map(n => (
                           <div key={n.id} style={{ position: 'relative' }}>
                             <div style={s.shape(n)}>
-                              {n.label}
+                              <input 
+                                style={{ background: 'none', border: 'none', textAlign: 'center', width: '100%', fontSize: '10px', fontWeight: 'bold', color: 'inherit' }} 
+                                value={n.label} 
+                                onChange={e => updateNode(n.id, 'label', e.target.value)} 
+                              />
+                              <input type="color" value={n.color} onChange={e => updateNode(n.id, 'color', e.target.value)} style={{ width: '15px', height: '15px', border: 'none', marginTop: '5px' }} />
                             </div>
                             
-                            {diagrama.edges.filter(e => e.from === n.id).map(e => {
-                              const targetNode = diagrama.nodes.find(tn => tn.id === e.to);
-                              return (
-                                <div key={e.id} style={{ position: 'absolute', bottom: '-45px', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', width: '200px', zIndex: 1 }}>
-                                  <div style={{ fontSize: '10px', color: colors.primary, fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.8)', padding: '2px 5px', borderRadius: '4px' }}>
-                                    {e.label} <span onClick={() => removeEdge(e.id)} style={{ cursor: 'pointer', color: '#DE350B' }}>×</span>
+                            {/* Renderizar TODAS as conexões de saída (Suporte a múltiplos destinos) */}
+                            <div style={{ position: 'absolute', bottom: '-70px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center', width: '250px' }}>
+                              {diagrama.edges.filter(e => e.from === n.id).map(e => {
+                                const targetNode = diagrama.nodes.find(tn => tn.id === e.to);
+                                return (
+                                  <div key={e.id} style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '9px', color: colors.primary, fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.8)', padding: '1px 4px', borderRadius: '3px', whiteSpace: 'nowrap' }}>
+                                      {e.label} → {targetNode?.label || '?'}
+                                    </div>
+                                    <div style={{ color: colors.primary, fontSize: '18px', marginTop: '-8px' }}>↓</div>
                                   </div>
-                                  <div style={{ color: colors.primary, fontSize: '25px', marginTop: '-5px' }}>↓</div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   ))}
-                  {diagrama.swimlanes.length === 0 && <div style={{ padding: '40px', color: colors.secondary }}>Adicione uma Área (Swimlane) para começar.</div>}
                 </div>
               </div>
             </div>
